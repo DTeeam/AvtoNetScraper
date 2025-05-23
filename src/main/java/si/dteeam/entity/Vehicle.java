@@ -1,10 +1,7 @@
 package si.dteeam.entity;
 
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
@@ -16,9 +13,9 @@ public class Vehicle {
     private Long id;
 
     private String title;
-    private double price ;
+    private int price ;
     private String modelYear;
-    private int mileage;
+    private int mileage ;
     private int powerKW;
     private String url;
 
