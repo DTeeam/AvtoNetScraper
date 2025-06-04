@@ -4,9 +4,11 @@ package si.dteeam.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Data
-public class Vehicle {
+public class Vehicles {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,6 +20,7 @@ public class Vehicle {
     private int mileage ;
     private int powerKW;
     private String url;
+    private LocalDateTime dateOfChange;
 
     @Override
     public String toString() {
@@ -28,7 +31,8 @@ public class Vehicle {
                 ", modelYear=" + modelYear +
                 ", mileage=" + mileage +
                 ", power=" + powerKW +
-                ", url='" + url + '\'' +
+                ", url='" + url +
+                ", dateOfChange='" + dateOfChange + '\'' +
                 '}';
     }
 }

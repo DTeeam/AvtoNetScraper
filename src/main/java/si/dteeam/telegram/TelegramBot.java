@@ -40,14 +40,12 @@ public class TelegramBot extends TelegramLongPollingBot {
             String responseText = "";
 
             if (messageText.startsWith("http")) {
-                try {
-                    parser.parse(messageText);
+                    //parser.parse(messageText);
                     sendMessage(chatId, "Parser zagnan za: " + messageText);
-                } catch (Exception e) {
-                    responseText = "Napaka pri obdelavi URL-ja: " + e.getMessage();
-                }
+
             } else {
                 responseText = "Pošlji url za parsanje.";
+                sendMessage(chatId, responseText);
             }
         }
     }
@@ -69,3 +67,4 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     }
 }
+
