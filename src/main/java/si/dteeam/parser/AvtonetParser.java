@@ -13,6 +13,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import si.dteeam.entity.Vehicles;
+import si.dteeam.repository.LinksRepository;
 import si.dteeam.repository.UsersRepository;
 import si.dteeam.repository.VehiclesRepository;
 
@@ -28,9 +29,9 @@ import java.util.Set;
 public class AvtonetParser {
     private VehiclesRepository vehiclesRepository;
     private UsersRepository usersRepository;
+    private LinksRepository linksRepository;
     private Set<String> savedUrls;
     private Set<String> savedUsers;
-    private String rUrl;
 
 
     @Autowired
@@ -38,10 +39,19 @@ public class AvtonetParser {
         this.vehiclesRepository = vehiclesRepository;
     }
 
+    @Autowired
+    public void setUsersRepository(UsersRepository usersRepository) {
+        this.usersRepository = usersRepository;
+    }
+
+    @Autowired
+    public void setLinksRepository(LinksRepository linksRepository) {
+        this.linksRepository = linksRepository;
+    }
+
     @PostConstruct
     public void init() {
         savedUrls = new HashSet<>(vehiclesRepository.findAllUrls());
-        savedUsers = new HashSet<>(usersRepository.findAllUsers());
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -51,22 +61,32 @@ public class AvtonetParser {
 
     @Scheduled(cron = "0 * * * * *")
     public void runEveryMinute() {
-        //parse(rUrl);
         parse();
     }
 
+    //String paramUrl, Long chatId
     public void parse() {
         try {
-            //rUrl = baseUrl;
             savedUrls = new HashSet<>(vehiclesRepository.findAllUrls());
             WebDriverManager.chromedriver().setup();
             ChromeOptions options = new ChromeOptions();
             WebDriver driver = new ChromeDriver(options);
             Random rand = new Random();
 
-            driver.get("https://www.avto.net/Ads/results.asp?znamka=Yamaha&model=mt07&modelID=&tip=&znamka2=&model2=&tip2=&znamka3=&model3=&tip3=&cenaMin=0&cenaMax=999999&letnikMin=0&letnikMax=2090&bencin=0&starost2=999&oblika=&ccmMin=0&ccmMax=99999&mocMin=&mocMax=&kmMin=0&kmMax=9999999&kwMin=0&kwMax=999&motortakt=0&motorvalji=0&lokacija=0&sirina=&dolzina=&dolzinaMIN=&dolzinaMAX=&nosilnostMIN=&nosilnostMAX=&sedezevMIN=&sedezevMAX=&lezisc=&presek=&premer=&col=&vijakov=&EToznaka=&vozilo=&airbag=&barva=&barvaint=&doseg=&BkType=&BkOkvir=&BkOkvirType=&Bk4=&EQ1=1000000000&EQ2=1000000000&EQ3=1000000000&EQ4=100000000&EQ5=1000000000&EQ6=1000000000&EQ7=1110100120&EQ8=101000000&EQ9=100000002&EQ10=1000000000&KAT=1060000000&PIA=&PIAzero=&PIAOut=&PSLO=&akcija=&paketgarancije=&broker=&prikazkategorije=&kategorija=61000&ONLvid=&ONLnak=&zaloga=10&arhiv=&presort=&tipsort=&stran=");
-            //driver.get(baseUrl);
+
+            String testUrl = "https://www.avto.net/Ads/results.asp?znamka=Yamaha&model=mt07&modelID=&tip=&znamka2=&model2=&tip2=&znamka3=&model3=&tip3=&cenaMin=0&cenaMax=999999&letnikMin=0&letnikMax=2090&bencin=0&starost2=999&oblika=&ccmMin=0&ccmMax=99999&mocMin=&mocMax=&kmMin=0&kmMax=9999999&kwMin=0&kwMax=999&motortakt=0&motorvalji=0&lokacija=0&sirina=&dolzina=&dolzinaMIN=&dolzinaMAX=&nosilnostMIN=&nosilnostMAX=&sedezevMIN=&sedezevMAX=&lezisc=&presek=&premer=&col=&vijakov=&EToznaka=&vozilo=&airbag=&barva=&barvaint=&doseg=&BkType=&BkOkvir=&BkOkvirType=&Bk4=&EQ1=1000000000&EQ2=1000000000&EQ3=1000000000&EQ4=100000000&EQ5=1000000000&EQ6=1000000000&EQ7=1110100120&EQ8=101000000&EQ9=100000002&EQ10=1000000000&KAT=1060000000&PIA=&PIAzero=&PIAOut=&PSLO=&akcija=&paketgarancije=&broker=&prikazkategorije=&kategorija=61000&ONLvid=&ONLnak=&zaloga=10&arhiv=&presort=&tipsort=&stran=";
+            driver.get(testUrl);
+            //TODO driver.get(paramURL);
+
             List<WebElement> posts = driver.findElements(By.className("GO-Results-Row"));
+            /*List<Users> users = usersRepository.findAll();
+            for(Users user : users) {
+                List<Links> links = user.getUrl();
+                for (Links link : links) {
+                    System.out.println(" - Link: " + link.getUrl());
+                    System.out.println("   Dodano: " + link.getCreatedAt());
+                }
+            }*/
 
             for (WebElement post : posts) {
                 WebElement table = post.findElement(By.cssSelector("table.table.table-striped.table-sm.table-borderless"));
@@ -155,6 +175,10 @@ public class AvtonetParser {
                System.out.println("Cena: " + price);
                System.out.println("URL: " + hrefUrl);*/
                     } else
+
+
+                        //whaaaaa
+
                         System.out.println("OGLAS ŽE PREBRAN");
 
                     Thread.sleep(10000 + rand.nextInt(3000));

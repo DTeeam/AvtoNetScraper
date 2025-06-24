@@ -22,6 +22,10 @@ public class Vehicles {
     private String url;
     private LocalDateTime dateOfChange;
 
+    @ManyToOne
+    @JoinColumn(name = "link_id")
+    private Links link;
+
     @Override
     public String toString() {
         return "Vehicle{" +

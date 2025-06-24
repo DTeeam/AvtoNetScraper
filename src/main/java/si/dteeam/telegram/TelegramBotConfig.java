@@ -1,3 +1,4 @@
+/*
 package si.dteeam.telegram;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -30,3 +31,4 @@ public class TelegramBotConfig {
     }
 }
 
+*/
