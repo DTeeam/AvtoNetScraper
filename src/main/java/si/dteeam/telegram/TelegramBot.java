@@ -2,6 +2,7 @@ package si.dteeam.telegram;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -10,6 +11,7 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import si.dteeam.entity.Links;
 import si.dteeam.entity.Users;
+import si.dteeam.events.VehicleEvent;
 import si.dteeam.parser.AvtonetParser;
 import si.dteeam.repository.UsersRepository;
 
@@ -28,10 +30,17 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Autowired
     private AvtonetParser parser;
+
     @Autowired
     private UsersRepository usersRepository;
 
-    @Override
+    @EventListener
+    public void handleNewVehicleEvent(VehicleEvent event) {
+        sendMessage(event.getChatId(), event.getMessage());
+    }
+
+
+@Override
     public String getBotUsername() {
         return botUsername;
     }
@@ -47,31 +56,38 @@ public class TelegramBot extends TelegramLongPollingBot {
             String messageText = update.getMessage().getText();
             Long chatId = update.getMessage().getChatId();
             User userFromUpdate = update.getMessage().getFrom();
-
-            Optional<Users> existingUserOptional = usersRepository.findByChatID(chatId);
-
             String responseText = "";
 
+
+            Users user = usersRepository.findByChatID(chatId).orElseGet(() -> {
+                Users newUser = new Users();
+                newUser.setChatID(chatId);
+                newUser.setFirstName(userFromUpdate.getFirstName());
+                newUser.setLastName(userFromUpdate.getLastName());
+                newUser.setUrl(new ArrayList<>());
+                return newUser;
+            });
+
             List<Links> linkList = new ArrayList<>();
-            Users user;
-            user = existingUserOptional.get();
+            Links link = new Links();
+            link.setUrl(messageText);
+            link.setUser(user);
 
             if (messageText.startsWith("http")) {
                 System.out.println("TESTIRAM");
 
-                Links link = new Links();
-                if (existingUserOptional.isPresent()) {
-                    //user = existingUserOptional.get();
-                    linkList = user.getUrl();
-                    link.setUrl(messageText);
-                    link.setUser(user);
+                if (!linkList.contains(link)) {
+                    linkList.add(link);
+                    user.setUrl(linkList);
 
                     if(!linkList.contains(link)) {
                         linkList.add(link);
                         user.setUrl(linkList);
                         usersRepository.save(user); //doda nov url v List<urljev> userja
+                        System.out.println("Dodan je bil nov url za: " + user.getFirstName() + " " + user.getLastName());
+
                     }
-                } else {
+                } /*else {
                     link.setUrl(messageText);
                     linkList.add(link);
 
@@ -81,17 +97,28 @@ public class TelegramBot extends TelegramLongPollingBot {
                     user.setLastName(userFromUpdate.getLastName());
                     user.setUrl(linkList);
                     usersRepository.save(user);
-                }
-                System.out.println("Dodan je bil user " + user);
+                    System.out.println("Dodan je bil user " + user);
 
-                //parser.parse(messageText, user);
-                sendMessage(chatId, "Parser zagnan za: " + messageText);
+                }*/
 
-            } else if (messageText.startsWith("r")) {
+                parser.startParser(messageText, user);
+
+            } else if (messageText.startsWith("/deleUser")) {
                 sendMessage(chatId, "Brišem userja");
                 usersRepository.delete(user);
                 
-            } else {
+            } else if(messageText.startsWith("/stop")) {
+                parser.disableScheduler();
+                sendMessage(chatId, "Ustavljen");
+            }
+            else if (messageText.startsWith("/status")) {
+                String status = parser.isSchedulerEnabled
+                        ? "Parser je trenutno aktiven in preverja nove oglase."
+                        : "Parser je trenutno ustavljen.";
+                sendMessage(chatId, status);
+            }
+
+            else {
                 responseText = "Pošlji url za parsanje.";
                 sendMessage(chatId, responseText);
 
@@ -102,7 +129,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private void sendMessage(Long chatId, String messageToSend) {
+    public void sendMessage(Long chatId, String messageToSend) {
         SendMessage messageOut = new SendMessage();
         messageOut.setChatId(chatId.toString());
         messageOut.setText(messageToSend);

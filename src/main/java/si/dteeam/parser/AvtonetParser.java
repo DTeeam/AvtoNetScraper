@@ -9,13 +9,19 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import si.dteeam.entity.Links;
+import si.dteeam.entity.Users;
 import si.dteeam.entity.Vehicles;
+import si.dteeam.events.VehicleEvent;
 import si.dteeam.repository.LinksRepository;
 import si.dteeam.repository.UsersRepository;
 import si.dteeam.repository.VehiclesRepository;
+import si.dteeam.telegram.TelegramBot;
+//import si.dteeam.telegram.TelegramBot;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -32,6 +38,12 @@ public class AvtonetParser {
     private LinksRepository linksRepository;
     private Set<String> savedUrls;
     private Set<String> savedUsers;
+    private Users currentUser;
+    private String currentLink;
+    public boolean isSchedulerEnabled = false;
+    private Thread parserThread;
+    private volatile boolean stopThread = false;
+
 
 
     @Autowired
@@ -49,6 +61,10 @@ public class AvtonetParser {
         this.linksRepository = linksRepository;
     }
 
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
+
     @PostConstruct
     public void init() {
         savedUrls = new HashSet<>(vehiclesRepository.findAllUrls());
@@ -59,14 +75,68 @@ public class AvtonetParser {
         runEveryMinute();
     }
 
-    @Scheduled(cron = "0 * * * * *")
-    public void runEveryMinute() {
-        parse();
+
+
+    public void enableScheduler() {
+        this.isSchedulerEnabled = true;
     }
 
-    //String paramUrl, Long chatId
-    public void parse() {
+
+    public void disableScheduler() {
+        stopThread = true;
+        this.isSchedulerEnabled = false;
+        this.currentLink = null;
+        this.currentUser = null;
+        if (parserThread != null) {
+            parserThread.interrupt();
+        }
+        System.out.println("Ustavljen");
+    }
+
+
+
+    public void startParser(String paramURL, Users user) {
+        if (parserThread != null && parserThread.isAlive()) {
+            return;
+        }
+
+        stopThread = false;
+        currentLink = paramURL;
+        currentUser = user;
+
+        parserThread = new Thread(() -> {
+            while (!stopThread) {
+                try {
+                    parse(currentLink, currentUser);
+                    Thread.sleep(60000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+
+        parserThread.start();
+        isSchedulerEnabled = true;
+    }
+
+
+    @Scheduled(cron = "0 * * * * *")
+    public void runEveryMinute() {
+        if (isSchedulerEnabled) {
+            parse(currentLink, currentUser);
+        }
+        else
+            System.out.println("Čakam url");
+    }
+
+    public void parse(String paramURL, Users user) {
         try {
+            if (!isSchedulerEnabled) {
+                enableScheduler(); // Omogoči scheduler ob prvem klicu
+            }
+
+            //TODO tu povezat userje z linki vozil
             savedUrls = new HashSet<>(vehiclesRepository.findAllUrls());
             WebDriverManager.chromedriver().setup();
             ChromeOptions options = new ChromeOptions();
@@ -74,9 +144,9 @@ public class AvtonetParser {
             Random rand = new Random();
 
 
-            String testUrl = "https://www.avto.net/Ads/results.asp?znamka=Yamaha&model=mt07&modelID=&tip=&znamka2=&model2=&tip2=&znamka3=&model3=&tip3=&cenaMin=0&cenaMax=999999&letnikMin=0&letnikMax=2090&bencin=0&starost2=999&oblika=&ccmMin=0&ccmMax=99999&mocMin=&mocMax=&kmMin=0&kmMax=9999999&kwMin=0&kwMax=999&motortakt=0&motorvalji=0&lokacija=0&sirina=&dolzina=&dolzinaMIN=&dolzinaMAX=&nosilnostMIN=&nosilnostMAX=&sedezevMIN=&sedezevMAX=&lezisc=&presek=&premer=&col=&vijakov=&EToznaka=&vozilo=&airbag=&barva=&barvaint=&doseg=&BkType=&BkOkvir=&BkOkvirType=&Bk4=&EQ1=1000000000&EQ2=1000000000&EQ3=1000000000&EQ4=100000000&EQ5=1000000000&EQ6=1000000000&EQ7=1110100120&EQ8=101000000&EQ9=100000002&EQ10=1000000000&KAT=1060000000&PIA=&PIAzero=&PIAOut=&PSLO=&akcija=&paketgarancije=&broker=&prikazkategorije=&kategorija=61000&ONLvid=&ONLnak=&zaloga=10&arhiv=&presort=&tipsort=&stran=";
-            driver.get(testUrl);
-            //TODO driver.get(paramURL);
+//            String testUrl = "https://www.avto.net/Ads/results.asp?znamka=Yamaha&model=mt07&modelID=&tip=&znamka2=&model2=&tip2=&znamka3=&model3=&tip3=&cenaMin=0&cenaMax=999999&letnikMin=0&letnikMax=2090&bencin=0&starost2=999&oblika=&ccmMin=0&ccmMax=99999&mocMin=&mocMax=&kmMin=0&kmMax=9999999&kwMin=0&kwMax=999&motortakt=0&motorvalji=0&lokacija=0&sirina=&dolzina=&dolzinaMIN=&dolzinaMAX=&nosilnostMIN=&nosilnostMAX=&sedezevMIN=&sedezevMAX=&lezisc=&presek=&premer=&col=&vijakov=&EToznaka=&vozilo=&airbag=&barva=&barvaint=&doseg=&BkType=&BkOkvir=&BkOkvirType=&Bk4=&EQ1=1000000000&EQ2=1000000000&EQ3=1000000000&EQ4=100000000&EQ5=1000000000&EQ6=1000000000&EQ7=1110100120&EQ8=101000000&EQ9=100000002&EQ10=1000000000&KAT=1060000000&PIA=&PIAzero=&PIAOut=&PSLO=&akcija=&paketgarancije=&broker=&prikazkategorije=&kategorija=61000&ONLvid=&ONLnak=&zaloga=10&arhiv=&presort=&tipsort=&stran=";
+//            driver.get(testUrl);
+            driver.get(paramURL);
 
             List<WebElement> posts = driver.findElements(By.className("GO-Results-Row"));
             /*List<Users> users = usersRepository.findAll();
@@ -89,6 +159,10 @@ public class AvtonetParser {
             }*/
 
             for (WebElement post : posts) {
+                if (stopThread) {
+                    driver.quit();
+                    return;
+                }
                 WebElement table = post.findElement(By.cssSelector("table.table.table-striped.table-sm.table-borderless"));
                 WebElement titleElement = post.findElement(By.className("GO-Results-Naziv"));
                 String hrefUrl = post.findElement(By.cssSelector("a.stretched-link")).getAttribute("href");
@@ -158,32 +232,30 @@ public class AvtonetParser {
                         //System.out.println(driver2.getPageSource());
                         WebElement dateOfLastChange = driver2.findElement(By.cssSelector("div.col-12.col-lg-6.p-0.pl-1.text-center.text-lg-left"));
 
-                        String[] parts = dateOfLastChange.getText().split(": ");
-                        String dateTimePart = parts[1];
+                        String[] dateParts = dateOfLastChange.getText().split(": ");
+                        String dateTimePart = dateParts[1];
                         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d.M.yyyy HH:mm:ss");
                         LocalDateTime dateTime = LocalDateTime.parse(dateTimePart, formatter);
+                        vehicle.setDateOfChange(dateTime);
 
                         driver2.quit();
 
-                        vehicle.setDateOfChange(dateTime);
-                        vehiclesRepository.save(vehicle);
-                        System.out.println(vehicle);
-               /*System.out.println("Motor: " + title);
-               System.out.println("Letnik: " + modelYear);
-               System.out.println("Prevoženi: " + mileage);
-               System.out.println("Moč: " + power);
-               System.out.println("Cena: " + price);
-               System.out.println("URL: " + hrefUrl);*/
+                        //Links link4Date = linksRepository.findLinksByUrl(paramURL);
+                        //if(vehicle.getDateOfChange().isBefore(link4Date.getCreatedAt())) {
+                            vehiclesRepository.save(vehicle);
+                            System.out.println(vehicle);
+                            eventPublisher.publishEvent(new VehicleEvent(this, user.getChatID(),
+                                    "Dodan je bil nov oglas za: " + title + "\n" + vehicle.getUrl()
+                            ));
+                        //}
+
                     } else
-
-
-                        //whaaaaa
 
                         System.out.println("OGLAS ŽE PREBRAN");
 
                     Thread.sleep(10000 + rand.nextInt(3000));
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
             }
 
