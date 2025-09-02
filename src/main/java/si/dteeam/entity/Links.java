@@ -14,9 +14,7 @@ public class Links {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Lob
-    @Column(columnDefinition = "TEXT")
-    private String url;
+
 
     private LocalDateTime createdAt;
     @PrePersist
@@ -31,6 +29,10 @@ public class Links {
 
     @OneToMany(mappedBy = "link")
     private List<Vehicles> vehicles;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String url;
 
     @Override
     public String toString() {

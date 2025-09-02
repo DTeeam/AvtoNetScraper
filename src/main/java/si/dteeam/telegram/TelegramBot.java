@@ -17,7 +17,6 @@ import si.dteeam.repository.UsersRepository;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
@@ -40,7 +39,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-@Override
+    @Override
     public String getBotUsername() {
         return botUsername;
     }
@@ -68,58 +67,53 @@ public class TelegramBot extends TelegramLongPollingBot {
                 return newUser;
             });
 
-            List<Links> linkList = new ArrayList<>();
-            Links link = new Links();
-            link.setUrl(messageText);
-            link.setUser(user);
 
             if (messageText.startsWith("http")) {
-                System.out.println("TESTIRAM");
+                /*List<Links> linkList = new ArrayList<>();
+                Links link = new Links();
+                link.setUrl(messageText);
+                link.setUser(user);
+*/
+
+                Links link = new Links();
+                link.setUrl(messageText);
+                link.setUser(user);
+
+                List<Links> linkList = user.getUrl();
 
                 if (!linkList.contains(link)) {
                     linkList.add(link);
                     user.setUrl(linkList);
+                    usersRepository.save(user); //doda nov url v List<urljev> userja
+                    System.out.println("Dodan je bil nov url za: " + user.getFirstName() + " " + user.getLastName());
 
-                    if(!linkList.contains(link)) {
-                        linkList.add(link);
-                        user.setUrl(linkList);
-                        usersRepository.save(user); //doda nov url v List<urljev> userja
-                        System.out.println("Dodan je bil nov url za: " + user.getFirstName() + " " + user.getLastName());
-
-                    }
-                } /*else {
-                    link.setUrl(messageText);
-                    linkList.add(link);
-
-                    user = new Users();
-                    user.setChatID(chatId);
-                    user.setFirstName(userFromUpdate.getFirstName());
-                    user.setLastName(userFromUpdate.getLastName());
-                    user.setUrl(linkList);
-                    usersRepository.save(user);
-                    System.out.println("Dodan je bil user " + user);
-
-                }*/
-
+                }
                 parser.startParser(messageText, user);
 
             } else if (messageText.startsWith("/deleUser")) {
                 sendMessage(chatId, "Brišem userja");
                 usersRepository.delete(user);
-                
-            } else if(messageText.startsWith("/stop")) {
+
+            } else if (messageText.startsWith("/stop")) {
                 parser.disableScheduler();
                 sendMessage(chatId, "Ustavljen");
-            }
-            else if (messageText.startsWith("/status")) {
+            } else if (messageText.startsWith("/status")) {
                 String status = parser.isSchedulerEnabled
                         ? "Parser je trenutno aktiven in preverja nove oglase."
                         : "Parser je trenutno ustavljen.";
                 sendMessage(chatId, status);
-            }
-
-            else {
-                responseText = "Pošlji url za parsanje.";
+            } else if (messageText.startsWith("/help")) {
+                String helper = """
+                        Ukazi, ki so na voljo:
+                        - Pošlji URL (http...) za začetek parsanja.
+                        - /deleUser – izbriše uporabnika.
+                        - /stop – ustavi parser.
+                        - /status – prikaže stanje parserja.
+                        - /help – prikaže to pomoč.
+                        """;
+                sendMessage(chatId, helper);
+            } else {
+                responseText = "Neznan ukaz. Pošlji url za parsanje ali uporabi /help za seznam ukazov.";
                 sendMessage(chatId, responseText);
 
 

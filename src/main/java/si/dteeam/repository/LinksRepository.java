@@ -14,6 +14,6 @@ public interface LinksRepository  extends JpaRepository<Links, Integer> {
     @Query("SELECT l FROM Links l WHERE l.user.chatID = :chatId")
     List<Links> findLinksByChatId(@Param("chatId") Long chatId);
 
-    @Query("SELECT l FROM Links l WHERE l.user.chatID = :url")
+    @Query("SELECT l FROM Links l WHERE l.url = :url")
     Links findLinksByUrl(@Param("url") String url);
 }

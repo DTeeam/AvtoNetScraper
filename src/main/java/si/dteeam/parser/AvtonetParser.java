@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import si.dteeam.entity.Links;
 import si.dteeam.entity.Users;
@@ -20,8 +19,6 @@ import si.dteeam.events.VehicleEvent;
 import si.dteeam.repository.LinksRepository;
 import si.dteeam.repository.UsersRepository;
 import si.dteeam.repository.VehiclesRepository;
-import si.dteeam.telegram.TelegramBot;
-//import si.dteeam.telegram.TelegramBot;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -43,7 +40,6 @@ public class AvtonetParser {
     public boolean isSchedulerEnabled = false;
     private Thread parserThread;
     private volatile boolean stopThread = false;
-
 
 
     @Autowired
@@ -76,7 +72,6 @@ public class AvtonetParser {
     }
 
 
-
     public void enableScheduler() {
         this.isSchedulerEnabled = true;
     }
@@ -92,7 +87,6 @@ public class AvtonetParser {
         }
         System.out.println("Ustavljen");
     }
-
 
 
     public void startParser(String paramURL, Users user) {
@@ -121,12 +115,11 @@ public class AvtonetParser {
     }
 
 
-    @Scheduled(cron = "0 * * * * *")
+    //@Scheduled(cron = "0 * * * * *")
     public void runEveryMinute() {
         if (isSchedulerEnabled) {
             parse(currentLink, currentUser);
-        }
-        else
+        } else
             System.out.println("Čakam url");
     }
 
@@ -163,10 +156,14 @@ public class AvtonetParser {
                     driver.quit();
                     return;
                 }
+
                 WebElement table = post.findElement(By.cssSelector("table.table.table-striped.table-sm.table-borderless"));
                 WebElement titleElement = post.findElement(By.className("GO-Results-Naziv"));
                 String hrefUrl = post.findElement(By.cssSelector("a.stretched-link")).getAttribute("href");
                 List<WebElement> rows = table.findElements(By.tagName("tr"));
+
+                Links currentLink = linksRepository.findLinksByUrl(paramURL);
+
 
                 String title = titleElement.findElement(By.tagName("span")).getText();
                 String power = "";
@@ -213,6 +210,7 @@ public class AvtonetParser {
                     if (!savedUrls.contains(hrefUrl)) {
                         savedUrls.add(hrefUrl);
 
+                        vehicle.setLink(currentLink);
                         vehicle.setTitle(title);
                         vehicle.setPrice(Integer.parseInt(partsPrice[0]));
                         vehicle.setModelYear(modelYear);
@@ -240,14 +238,11 @@ public class AvtonetParser {
 
                         driver2.quit();
 
-                        //Links link4Date = linksRepository.findLinksByUrl(paramURL);
-                        //if(vehicle.getDateOfChange().isBefore(link4Date.getCreatedAt())) {
-                            vehiclesRepository.save(vehicle);
-                            System.out.println(vehicle);
-                            eventPublisher.publishEvent(new VehicleEvent(this, user.getChatID(),
-                                    "Dodan je bil nov oglas za: " + title + "\n" + vehicle.getUrl()
-                            ));
-                        //}
+                        vehiclesRepository.save(vehicle);
+                        System.out.println(vehicle);
+                        eventPublisher.publishEvent(new VehicleEvent(this, user.getChatID(),
+                                "Dodan je bil nov oglas za: " + title + "\n" + vehicle.getUrl()
+                        ));
 
                     } else
 
@@ -260,7 +255,6 @@ public class AvtonetParser {
             }
 
             driver.quit();
-            driver.close();
             Thread.sleep(20000 + rand.nextInt(3000));
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
