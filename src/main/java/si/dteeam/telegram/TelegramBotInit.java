@@ -1,5 +1,6 @@
 package si.dteeam.telegram;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -9,10 +10,9 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 @Component
 public class TelegramBotInit {
-    private final TelegramBot bot;
-    public TelegramBotInit(TelegramBot bot) {
-        this.bot = bot;
-    }
+
+    @Autowired
+    private TelegramBot bot;
 
     @EventListener({ContextRefreshedEvent.class})
     public void init() {

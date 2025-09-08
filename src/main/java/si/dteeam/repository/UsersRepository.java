@@ -2,10 +2,8 @@ package si.dteeam.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import si.dteeam.entity.Links;
 import si.dteeam.entity.Users;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface UsersRepository extends JpaRepository<Users, Long> {
@@ -16,5 +14,5 @@ public interface UsersRepository extends JpaRepository<Users, Long> {
     void removeUsersByChatID(Long chatID);
 
    /* @Query("SELECT l FROM Users u JOIN u.url l")
-    List<Links> findAllLinks();*/
+    List<Link> findAllLinks();*/
 }

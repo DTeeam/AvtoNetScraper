@@ -8,14 +8,15 @@ import java.time.LocalDateTime;
 
 @Entity
 @Data
-public class Vehicles {
+public class Vehicle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String title;
-    private int price ;
+
+    private Integer price;
     private String modelYear;
     private int mileage ;
     private int powerKW;
@@ -24,7 +25,9 @@ public class Vehicles {
 
     @ManyToOne
     @JoinColumn(name = "link_id")
-    private Links link;
+    private Link link;
+
+    private boolean isSubscribed;
 
     @Override
     public String toString() {

@@ -7,13 +7,14 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import si.dteeam.entity.Links;
+import si.dteeam.entity.Link;
 import si.dteeam.entity.Users;
 import si.dteeam.events.VehicleEvent;
 import si.dteeam.parser.AvtonetParser;
+import si.dteeam.repository.LinksRepository;
 import si.dteeam.repository.UsersRepository;
+import si.dteeam.repository.VehiclesRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,12 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Autowired
     private UsersRepository usersRepository;
+
+
+    @Autowired
+    private VehiclesRepository vehiclesRepository;
+    @Autowired
+    private LinksRepository linksRepository;
 
     @EventListener
     public void handleNewVehicleEvent(VehicleEvent event) {
@@ -54,9 +61,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             Long chatId = update.getMessage().getChatId();
-            User userFromUpdate = update.getMessage().getFrom();
+            org.telegram.telegrambots.meta.api.objects.User userFromUpdate = update.getMessage().getFrom();
             String responseText = "";
-
 
             Users user = usersRepository.findByChatID(chatId).orElseGet(() -> {
                 Users newUser = new Users();
@@ -67,49 +73,44 @@ public class TelegramBot extends TelegramLongPollingBot {
                 return newUser;
             });
 
-
-            if (messageText.startsWith("http")) {
-                /*List<Links> linkList = new ArrayList<>();
-                Links link = new Links();
-                link.setUrl(messageText);
-                link.setUser(user);
-*/
-
-                Links link = new Links();
+            if (messageText.startsWith("http") && messageText.contains("Ads/results")) {
+                Link link = new Link();
                 link.setUrl(messageText);
                 link.setUser(user);
 
-                List<Links> linkList = user.getUrl();
-
+                List<Link> linkList = user.getUrl();
                 if (!linkList.contains(link)) {
                     linkList.add(link);
                     user.setUrl(linkList);
-                    usersRepository.save(user); //doda nov url v List<urljev> userja
-                    System.out.println("Dodan je bil nov url za: " + user.getFirstName() + " " + user.getLastName());
-
+                    usersRepository.save(user);
                 }
-                parser.startParser(messageText, user);
+                //parser.updateLink(link);
+                link.setSubscribed(true);
+                linksRepository.save(link);
+                sendMessage(chatId, "Subscribed to a new url");
+                System.out.println("New url added for: " + user.getFirstName());
+            }
+            else if (messageText.contains("Ads/details")) {
+                vehiclesRepository.setSubscribeToVehicle(user.getId(), messageText, true);
+                sendMessage(chatId, "Subscribed to details!");
+            }
+            else if (messageText.startsWith("unsub") && messageText.contains("Ads/results")) {
+                linksRepository.setSubscribeToLink(user.getId(), messageText, false);
+                sendMessage(chatId, "Unsubscribed from details!");
+            }
+            else if (messageText.startsWith("unsub") && messageText.contains("Ads/details")) {
+                vehiclesRepository.setSubscribeToVehicle(user.getId(), messageText, false);
+                sendMessage(chatId, "Unsubscribed from details!");
+            }
+            else if (messageText.startsWith("/stop")) {
+                sendMessage(chatId, "Parsing stopped");
 
-            } else if (messageText.startsWith("/deleUser")) {
-                sendMessage(chatId, "Brišem userja");
-                usersRepository.delete(user);
-
-            } else if (messageText.startsWith("/stop")) {
-                parser.disableScheduler();
-                sendMessage(chatId, "Ustavljen");
-            } else if (messageText.startsWith("/status")) {
-                String status = parser.isSchedulerEnabled
-                        ? "Parser je trenutno aktiven in preverja nove oglase."
-                        : "Parser je trenutno ustavljen.";
-                sendMessage(chatId, status);
-            } else if (messageText.startsWith("/help")) {
+            }  else if (messageText.startsWith("/help")) {
                 String helper = """
                         Ukazi, ki so na voljo:
                         - Pošlji URL (http...) za začetek parsanja.
-                        - /deleUser – izbriše uporabnika.
                         - /stop – ustavi parser.
-                        - /status – prikaže stanje parserja.
-                        - /help – prikaže to pomoč.
+                        - /help – prikaže to sporočilo.
                         """;
                 sendMessage(chatId, helper);
             } else {
@@ -136,4 +137,3 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 }
-

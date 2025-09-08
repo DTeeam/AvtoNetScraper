@@ -26,7 +26,7 @@ public class Users {
             cascade = CascadeType.ALL,
             fetch = FetchType.LAZY)
 
-    private List<Links> url;
+    private List<Link> url;
 
     @Override
     public String toString() {

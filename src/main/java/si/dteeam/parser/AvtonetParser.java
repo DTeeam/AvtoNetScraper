@@ -8,13 +8,10 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-import si.dteeam.entity.Links;
-import si.dteeam.entity.Users;
-import si.dteeam.entity.Vehicles;
+import org.springframework.stereotype.Service;
+import si.dteeam.entity.Link;
+import si.dteeam.entity.Vehicle;
 import si.dteeam.events.VehicleEvent;
 import si.dteeam.repository.LinksRepository;
 import si.dteeam.repository.UsersRepository;
@@ -22,23 +19,17 @@ import si.dteeam.repository.VehiclesRepository;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
-@Component
+@Service
 public class AvtonetParser {
     private VehiclesRepository vehiclesRepository;
     private UsersRepository usersRepository;
     private LinksRepository linksRepository;
-    private Set<String> savedUrls;
-    private Set<String> savedUsers;
-    private Users currentUser;
-    private String currentLink;
-    public boolean isSchedulerEnabled = false;
-    private Thread parserThread;
     private volatile boolean stopThread = false;
 
 
@@ -63,94 +54,102 @@ public class AvtonetParser {
 
     @PostConstruct
     public void init() {
-        savedUrls = new HashSet<>(vehiclesRepository.findAllUrls());
+
     }
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void runOnceOnStartup() {
-        runEveryMinute();
-    }
-
-
-    public void enableScheduler() {
-        this.isSchedulerEnabled = true;
-    }
-
-
-    public void disableScheduler() {
-        stopThread = true;
-        this.isSchedulerEnabled = false;
-        this.currentLink = null;
-        this.currentUser = null;
-        if (parserThread != null) {
-            parserThread.interrupt();
-        }
-        System.out.println("Ustavljen");
-    }
-
-
-    public void startParser(String paramURL, Users user) {
-        if (parserThread != null && parserThread.isAlive()) {
-            return;
-        }
-
-        stopThread = false;
-        currentLink = paramURL;
-        currentUser = user;
-
-        parserThread = new Thread(() -> {
-            while (!stopThread) {
-                try {
-                    parse(currentLink, currentUser);
-                    Thread.sleep(60000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        });
-
-        parserThread.start();
-        isSchedulerEnabled = true;
-    }
-
-
-    //@Scheduled(cron = "0 * * * * *")
-    public void runEveryMinute() {
-        if (isSchedulerEnabled) {
-            parse(currentLink, currentUser);
-        } else
-            System.out.println("Čakam url");
-    }
-
-    public void parse(String paramURL, Users user) {
+    public void updateVehicle(Vehicle vehicle) {
         try {
-            if (!isSchedulerEnabled) {
-                enableScheduler(); // Omogoči scheduler ob prvem klicu
-            }
-
-            //TODO tu povezat userje z linki vozil
-            savedUrls = new HashSet<>(vehiclesRepository.findAllUrls());
             WebDriverManager.chromedriver().setup();
             ChromeOptions options = new ChromeOptions();
             WebDriver driver = new ChromeDriver(options);
             Random rand = new Random();
+            driver.get(vehicle.getUrl());
+
+            WebElement titleElement = driver.findElement(
+                    By.xpath("//div[@class='col-12 mt-3 pt-1']/h3")
+            );
+            WebElement parkElement = driver.findElement(
+                    By.cssSelector("a[href*='ParkEUR']")
+            );
+            WebElement yearElement = driver.findElement(
+                    By.xpath("//tr[th[contains(text(),'Letnik:')]]/td")
+            );
+            WebElement kmElement = driver.findElement(
+                    By.xpath("//tr[th[contains(text(),'Prevoženi km:')]]/td")
+            );
+            WebElement powerElement = driver.findElement(
+                    By.xpath("//tr[th[contains(text(),'Moč motorja:')]]/td")
+            );
+            WebElement dateOfLastChange = driver.findElement(By.cssSelector("div.col-12.col-lg-6.p-0.pl-1.text-center.text-lg-left"));
+
+            String title = titleElement.getText().trim();
+            String href = parkElement.getAttribute("href");
+            String yearText = yearElement.getText().trim();
+            String kmText = kmElement.getText().replaceAll("[^0-9]", "");
+            String[] dateParts = dateOfLastChange.getText().split(": ");
+            String dateTimePart = dateParts[1];
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d.M.yyyy HH:mm:ss");
+            LocalDateTime dateTime = LocalDateTime.parse(dateTimePart, formatter);
+            Pattern pattern = Pattern.compile("ParkEUR=(\\d+)");
+            Matcher matcherPrice = pattern.matcher(href);
+            Matcher matcherPower = Pattern.compile("(\\d+)\\s*kW").matcher(powerElement.getText());
+
+            int price = 0;
+            if (matcherPrice.find()) {
+                price = Integer.parseInt(matcherPrice.group(1));
+            }
+            int year = Integer.parseInt(yearText);
+            int kilometers = Integer.parseInt(kmText);
+            int powerKW = 0;
+            if (matcherPower.find()) {
+                powerKW = Integer.parseInt(matcherPower.group(1));
+            }
+
+            Vehicle newVehicle = new Vehicle();
+            newVehicle.setTitle(title);
+            newVehicle.setPrice(price);
+            newVehicle.setModelYear(String.valueOf(year));
+            newVehicle.setMileage(kilometers);
+            newVehicle.setPowerKW(powerKW);
+            newVehicle.setDateOfChange(dateTime);
+            newVehicle.setUrl(vehicle.getUrl());
+            newVehicle.setLink(vehicle.getLink());
+            newVehicle.setId(vehicle.getId());
+            newVehicle.setSubscribed(vehicle.isSubscribed());
+
+            if (!newVehicle.equals(vehicle)) {
+                vehiclesRepository.save(newVehicle);
+                eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
+                        "Sprememba pri oglasu: " + title + "\n" + vehicle.getUrl()
+                ));
+            } else {
+                System.out.println("Ni spremembe pri oglasu: " + title);
+            }
+
+            System.out.println("Naslov: " + title);
+            System.out.println("Cena: " + price);
+            System.out.println("Letnik: " + year);
+            System.out.println("Kilometri: " + kilometers);
+            System.out.println("Moč motorja: " + powerKW + " kW");
+            vehicle.setDateOfChange(dateTime);
 
 
-//            String testUrl = "https://www.avto.net/Ads/results.asp?znamka=Yamaha&model=mt07&modelID=&tip=&znamka2=&model2=&tip2=&znamka3=&model3=&tip3=&cenaMin=0&cenaMax=999999&letnikMin=0&letnikMax=2090&bencin=0&starost2=999&oblika=&ccmMin=0&ccmMax=99999&mocMin=&mocMax=&kmMin=0&kmMax=9999999&kwMin=0&kwMax=999&motortakt=0&motorvalji=0&lokacija=0&sirina=&dolzina=&dolzinaMIN=&dolzinaMAX=&nosilnostMIN=&nosilnostMAX=&sedezevMIN=&sedezevMAX=&lezisc=&presek=&premer=&col=&vijakov=&EToznaka=&vozilo=&airbag=&barva=&barvaint=&doseg=&BkType=&BkOkvir=&BkOkvirType=&Bk4=&EQ1=1000000000&EQ2=1000000000&EQ3=1000000000&EQ4=100000000&EQ5=1000000000&EQ6=1000000000&EQ7=1110100120&EQ8=101000000&EQ9=100000002&EQ10=1000000000&KAT=1060000000&PIA=&PIAzero=&PIAOut=&PSLO=&akcija=&paketgarancije=&broker=&prikazkategorije=&kategorija=61000&ONLvid=&ONLnak=&zaloga=10&arhiv=&presort=&tipsort=&stran=";
-//            driver.get(testUrl);
-            driver.get(paramURL);
+        } catch (Exception e){
+            eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
+                    "Prišlo je do napake pri branju"));
+        }
+    }
+
+
+    public void updateLink(Link link) {
+        try {
+            WebDriverManager.chromedriver().setup();
+            ChromeOptions options = new ChromeOptions();
+            WebDriver driver = new ChromeDriver(options);
+            Random rand = new Random();
+            driver.get(link.getUrl());
 
             List<WebElement> posts = driver.findElements(By.className("GO-Results-Row"));
-            /*List<Users> users = usersRepository.findAll();
-            for(Users user : users) {
-                List<Links> links = user.getUrl();
-                for (Links link : links) {
-                    System.out.println(" - Link: " + link.getUrl());
-                    System.out.println("   Dodano: " + link.getCreatedAt());
-                }
-            }*/
-
             for (WebElement post : posts) {
                 if (stopThread) {
                     driver.quit();
@@ -162,7 +161,7 @@ public class AvtonetParser {
                 String hrefUrl = post.findElement(By.cssSelector("a.stretched-link")).getAttribute("href");
                 List<WebElement> rows = table.findElements(By.tagName("tr"));
 
-                Links currentLink = linksRepository.findLinksByUrl(paramURL);
+                Link currentLink = linksRepository.findLinksByUrl(link.getUrl());
 
 
                 String title = titleElement.findElement(By.tagName("span")).getText();
@@ -179,7 +178,6 @@ public class AvtonetParser {
                         break;
                     }
                 }
-
                 for (WebElement row : rows) {
                     List<WebElement> cells = row.findElements(By.tagName("td"));
                     if (cells.size() >= 2) {
@@ -196,38 +194,36 @@ public class AvtonetParser {
                         }
                     }
                 }
-
-
                 String[] partsMileage;
                 try {
-                    Vehicles vehicle = new Vehicles();
-
                     price = price.replace(".", "");
                     String[] partsPower = power.split(" ");
                     String[] partsPrice = price.split(" ");
 
-
-                    if (!savedUrls.contains(hrefUrl)) {
-                        savedUrls.add(hrefUrl);
-
+                    if (link.getVehicles().stream().filter(v -> v.getUrl().equals(hrefUrl)).findFirst().orElse(null) == null) {
+                        Vehicle vehicle = new Vehicle();
                         vehicle.setLink(currentLink);
                         vehicle.setTitle(title);
-                        vehicle.setPrice(Integer.parseInt(partsPrice[0]));
                         vehicle.setModelYear(modelYear);
-
+                        try {
+                            vehicle.setPrice(Integer.parseInt(partsPrice[0]));
+                            System.out.println("Price: " + vehicle.getPrice());
+                        }
+                        catch (NumberFormatException e) {
+                            vehicle.setPrice(null);
+                            System.out.println("Call for price");
+                        }
                         if (mileage.length() > 0) {
                             partsMileage = mileage.split(" ");
                             vehicle.setMileage(Integer.parseInt(partsMileage[0]));
-                        } else
+                        } else{
                             vehicle.setMileage(0);
+                        }
                         vehicle.setPowerKW(Integer.parseInt(partsPower[0]));
                         vehicle.setUrl(hrefUrl);
-
-
                         Thread.sleep(10000 + rand.nextInt(3000));
                         WebDriver driver2 = new ChromeDriver();
                         driver2.get(hrefUrl);
-                        //System.out.println(driver2.getPageSource());
                         WebElement dateOfLastChange = driver2.findElement(By.cssSelector("div.col-12.col-lg-6.p-0.pl-1.text-center.text-lg-left"));
 
                         String[] dateParts = dateOfLastChange.getText().split(": ");
@@ -240,20 +236,19 @@ public class AvtonetParser {
 
                         vehiclesRepository.save(vehicle);
                         System.out.println(vehicle);
-                        eventPublisher.publishEvent(new VehicleEvent(this, user.getChatID(),
+
+                        eventPublisher.publishEvent(new VehicleEvent(this, link.getUser().getChatID(),
                                 "Dodan je bil nov oglas za: " + title + "\n" + vehicle.getUrl()
                         ));
-
-                    } else
-
+                    } else {
                         System.out.println("OGLAS ŽE PREBRAN");
-
+                    }
                     Thread.sleep(10000 + rand.nextInt(3000));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
             }
-
+            driver.close();
             driver.quit();
             Thread.sleep(20000 + rand.nextInt(3000));
         } catch (InterruptedException e) {

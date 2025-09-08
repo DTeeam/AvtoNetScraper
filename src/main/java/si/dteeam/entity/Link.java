@@ -4,12 +4,12 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Entity
 @Data
-public class Links {
+public class Link {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -28,11 +28,13 @@ public class Links {
     private Users user;
 
     @OneToMany(mappedBy = "link")
-    private List<Vehicles> vehicles;
+    private List<Vehicle> vehicles = new ArrayList<>();
 
     @Lob
     @Column(columnDefinition = "TEXT")
     private String url;
+
+    boolean isSubscribed;
 
     @Override
     public String toString() {
@@ -44,17 +46,6 @@ public class Links {
                 '}';
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Links links)) return false;
-        return Objects.equals(url, links.url);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(url);
-    }
 
 
 }
