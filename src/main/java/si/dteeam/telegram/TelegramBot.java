@@ -90,27 +90,24 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendMessage(chatId, "Subscribed to a new url");
                 System.out.println("New url added for: " + user.getFirstName());
             }
-            else if (messageText.contains("Ads/details")) {
+            else if (messageText.startsWith("http") && messageText.contains("Ads/details")) {
                 vehiclesRepository.setSubscribeToVehicle(user.getId(), messageText, true);
                 sendMessage(chatId, "Subscribed to details!");
             }
-            else if (messageText.startsWith("unsub") && messageText.contains("Ads/results")) {
+            else if (messageText.startsWith("/unsub") && messageText.contains("Ads/results")) {
                 linksRepository.setSubscribeToLink(user.getId(), messageText, false);
                 sendMessage(chatId, "Unsubscribed from details!");
             }
-            else if (messageText.startsWith("unsub") && messageText.contains("Ads/details")) {
+            else if (messageText.startsWith("/unsub") && messageText.contains("Ads/details")) {
                 vehiclesRepository.setSubscribeToVehicle(user.getId(), messageText, false);
                 sendMessage(chatId, "Unsubscribed from details!");
             }
-            else if (messageText.startsWith("/stop")) {
-                sendMessage(chatId, "Parsing stopped");
-
-            }  else if (messageText.startsWith("/help")) {
+             else if (messageText.startsWith("/help")) {
                 String helper = """
                         Ukazi, ki so na voljo:
-                        - Pošlji URL (http...) za začetek parsanja.
-                        - /stop – ustavi parser.
-                        - /help – prikaže to sporočilo.
+                        - Send URL (http...)  for a search query (Ads/result) or for a specific ad (Ads/details).
+                        - /unsub <url> – unsubscribe from a specific search query or ad.
+                        - /help – shows this message.
                         """;
                 sendMessage(chatId, helper);
             } else {

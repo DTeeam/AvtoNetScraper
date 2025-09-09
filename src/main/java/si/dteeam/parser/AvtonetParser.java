@@ -133,6 +133,9 @@ public class AvtonetParser {
             System.out.println("Moč motorja: " + powerKW + " kW");
             vehicle.setDateOfChange(dateTime);
 
+            if(vehicle.isSubscribed()){
+
+            }
 
         } catch (Exception e){
             eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
