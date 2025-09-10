@@ -15,11 +15,16 @@ public class Vehicle {
     private Long id;
 
     private String title;
-
+    private String brand;
+    private String model;
+    @Column(nullable = true)
     private Integer price;
+    @Column(nullable = true)
     private String modelYear;
-    private int mileage ;
-    private int powerKW;
+    @Column(nullable = true)
+    private Integer mileage;
+    @Column(nullable = true)
+    private Integer powerKW;
     private String url;
     private LocalDateTime dateOfChange;
 
@@ -33,7 +38,9 @@ public class Vehicle {
     public String toString() {
         return "Vehicle{" +
                 "id=" + id +
-                ", title='" + title + '\'' +
+                //", title='" + title + '\'' +
+                ", brand='" + brand + '\'' +
+                ", model='" + model + '\'' +
                 ", price=" + price +
                 ", modelYear=" + modelYear +
                 ", mileage=" + mileage +

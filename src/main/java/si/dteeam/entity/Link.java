@@ -14,14 +14,11 @@ public class Link {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-
-
     private LocalDateTime createdAt;
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
-
 
     @ManyToOne
     @JoinColumn(name = "user_id")
@@ -31,7 +28,7 @@ public class Link {
     private List<Vehicle> vehicles = new ArrayList<>();
 
     @Lob
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT", nullable = true)
     private String url;
 
     boolean isSubscribed;
