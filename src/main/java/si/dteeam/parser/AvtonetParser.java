@@ -59,14 +59,12 @@ public class AvtonetParser {
     public void init() {
 
     }
-
     public void updateVehicle(Vehicle vehicle) {
         try {
             if(!vehicle.isSubscribed()){
                 System.out.println("Vehicle subscribed: " + vehicle.isSubscribed());
                 return;
             }
-            System.out.println("POGLEDI TUKI" + vehicle.isSubscribed());
             WebDriverManager.chromedriver().setup();
             ChromeOptions options = new ChromeOptions();
             WebDriver driver = new ChromeDriver(options);
@@ -134,7 +132,6 @@ public class AvtonetParser {
             newVehicle.setBrand(null);
             newVehicle.setModel(null);
             newVehicle.setModelYear(String.valueOf(year));
-            //newVehicle.setModelYear("2000");
             newVehicle.setMileage(kilometers);
             newVehicle.setPowerKW(powerKW);
             newVehicle.setDateOfChange(dateTime);
@@ -144,10 +141,36 @@ public class AvtonetParser {
             newVehicle.setSubscribed(vehicle.isSubscribed());
 
             if (!newVehicle.equals(vehicle) && vehicle.isSubscribed()) {
+                System.out.println("newVehicle: \n" + newVehicle);
+                System.out.println("vehicle: \n" + vehicle);
+                //TODO ko dodaš drugo vozilo, obveščanje ne deluje več
+                if(vehicle.getTitle() != null && vehicle.getPrice() != null &&
+                        vehicle.getModelYear() != null && vehicle.getPowerKW() != null && vehicle.getDateOfChange() != null){
+                    StringBuilder changes = new StringBuilder();
+                    if (!Objects.equals(vehicle.getPrice(), newVehicle.getPrice())) {
+                        changes.append("Price: ").append(vehicle.getPrice()).append(" → ").append(newVehicle.getPrice()).append("\n");
+                    }
+                    if (!Objects.equals(vehicle.getTitle(), newVehicle.getTitle())) {
+                        changes.append("Title: ").append(vehicle.getTitle()).append(" → ").append(newVehicle.getTitle()).append("\n");
+                    }
+                    if (!Objects.equals(vehicle.getModelYear(), newVehicle.getModelYear())) {
+                        changes.append("Model Year: ").append(vehicle.getModelYear()).append(" → ").append(newVehicle.getModelYear()).append("\n");
+                    }
+                    if (!Objects.equals(vehicle.getPowerKW(), newVehicle.getPowerKW())) {
+                        changes.append("Power: ").append(vehicle.getPowerKW()).append(" → ").append(newVehicle.getPowerKW()).append("\n");
+                    }
+                    if (!Objects.equals(vehicle.getDateOfChange(), newVehicle.getDateOfChange())) {
+                        changes.append("Date of Change: ").append(vehicle.getDateOfChange()).append(" → ").append(newVehicle.getDateOfChange()).append("\n");
+                    }
+
+                    if (changes.isEmpty()) {
+                        eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
+                                "An ad you are subscribed to has updated: " + title + "\n" + vehicle.getUrl(
+                                ) + "\n" + changes.toString()));
+                    }
+                }
                 vehiclesRepository.save(newVehicle);
-                eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
-                        "Sprememba pri oglasu: " + title +  "\n" + vehicle.getUrl(
-                )));
+
             } else {
                 System.out.println("No change in ad: " + title);
             }
@@ -162,7 +185,8 @@ public class AvtonetParser {
 */
             vehicle.setDateOfChange(dateTime);
 
-           driver.quit();
+            System.out.println("Model year: " + vehicle.getModelYear());
+            driver.quit();
             Thread.sleep(10000 + rand.nextInt(3000));
         } catch (Exception e){
             eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
