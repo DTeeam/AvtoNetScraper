@@ -14,7 +14,6 @@ public interface LinksRepository  extends JpaRepository<Link, Integer> {
     @Query("SELECT l FROM Link l WHERE l.user.chatID = :chatId")
     List<Link> findLinksByChatId(@Param("chatId") Long chatId);
 
-    @Query("SELECT l FROM Link l WHERE l.id = :id")
     Link findLinksById(Long id);
 
     @Modifying
@@ -23,4 +22,6 @@ public interface LinksRepository  extends JpaRepository<Link, Integer> {
     int setSubscribeToLink(Long userId, String linkUrl, boolean subscribe);
 
     Optional<Link> findByUserIdAndUrlIsNull( Long userId);
+
+    Link findLinkByUserIdAndUrl(Long userId, String url);
 }

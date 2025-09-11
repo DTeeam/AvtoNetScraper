@@ -62,6 +62,11 @@ public class AvtonetParser {
 
     public void updateVehicle(Vehicle vehicle) {
         try {
+            if(!vehicle.isSubscribed()){
+                System.out.println("Vehicle subscribed: " + vehicle.isSubscribed());
+                return;
+            }
+            System.out.println("POGLEDI TUKI" + vehicle.isSubscribed());
             WebDriverManager.chromedriver().setup();
             ChromeOptions options = new ChromeOptions();
             WebDriver driver = new ChromeDriver(options);
@@ -74,9 +79,9 @@ public class AvtonetParser {
             WebElement parkElement = driver.findElement(
                     By.cssSelector("a[href*='ParkEUR']")
             );
-            /*WebElement yearElement = driver.findElement(
+            WebElement yearElement = driver.findElement(
                     By.xpath("//tr[th[contains(text(),'Letnik:')]]/td")
-            );*/
+            );
             WebElement kmElement = driver.findElement(
                     By.xpath("//tr[th[contains(text(),'Prevoženi km:')]]/td")
             );
@@ -87,23 +92,20 @@ public class AvtonetParser {
            /* WebElement linkElement = driver.findElement(
                     By.cssSelector("a[href*='znamka='][href*='model=']")
             );*/
-
             //String hrefLink = linkElement.getAttribute("href");
-
-            Pattern brandPattern = Pattern.compile("znamka=([^&]+)");
             //Matcher brandMatcher = brandPattern.matcher(hrefLink);
             //String brand = brandMatcher.find() ? brandMatcher.group(1) : "";
-
-            Pattern modelPattern = Pattern.compile("model=([^&]+)");
             /*Matcher modelMatcher = modelPattern.matcher(hrefLink);
             String model = modelMatcher.find() ? modelMatcher.group(1) : "";
-
             brand = URLDecoder.decode(brand, StandardCharsets.UTF_8);
             model = URLDecoder.decode(model, StandardCharsets.UTF_8);*/
+            //Pattern brandPattern = Pattern.compile("znamka=([^&]+)");
+            //Pattern modelPattern = Pattern.compile("model=([^&]+)");
+
 
             String title = titleElement.getText().trim();
             String href = parkElement.getAttribute("href");
-            //String yearText = yearElement.getText().trim();
+            String yearText = yearElement.getText().trim();
             String kmText = kmElement.getText().replaceAll("[^0-9]", "");
             String[] dateParts = dateOfLastChange.getText().split(": ");
             String dateTimePart = dateParts[1];
@@ -119,7 +121,7 @@ public class AvtonetParser {
             if (matcherPrice.find()) {
                 price = Integer.parseInt(matcherPrice.group(1));
             }
-            //int year = Integer.parseInt(yearText);
+            int year = Integer.parseInt(yearText);
             int kilometers = Integer.parseInt(kmText);
             int powerKW = 0;
             if (matcherPower.find()) {
@@ -131,8 +133,8 @@ public class AvtonetParser {
             newVehicle.setTitle(title);
             newVehicle.setBrand(null);
             newVehicle.setModel(null);
-            //newVehicle.setModelYear(String.valueOf(year));
-            newVehicle.setModelYear("2000");
+            newVehicle.setModelYear(String.valueOf(year));
+            //newVehicle.setModelYear("2000");
             newVehicle.setMileage(kilometers);
             newVehicle.setPowerKW(powerKW);
             newVehicle.setDateOfChange(dateTime);
@@ -144,8 +146,8 @@ public class AvtonetParser {
             if (!newVehicle.equals(vehicle) && vehicle.isSubscribed()) {
                 vehiclesRepository.save(newVehicle);
                 eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
-                        "Sprememba pri oglasu: "
-                ));
+                        "Sprememba pri oglasu: " + title +  "\n" + vehicle.getUrl(
+                )));
             } else {
                 System.out.println("No change in ad: " + title);
             }
@@ -160,18 +162,27 @@ public class AvtonetParser {
 */
             vehicle.setDateOfChange(dateTime);
 
-            driver.close();
-            driver.quit();
+           driver.quit();
             Thread.sleep(10000 + rand.nextInt(3000));
         } catch (Exception e){
             eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
-                    "Error updating vehicle: " + vehicle.getUrl() + "\n" + e.getMessage()));
+                    "Error updating vehicle."));
+            try {
+                new java.net.URL(vehicle.getUrl());
+            } catch (Exception urlException) {
+                System.out.println("Deleting vehicle.");
+                vehiclesRepository.delete(vehicle);
+            }
         }
     }
 
 
     public void updateLink(Link link) {
         try {
+            if(!link.isSubscribed()){
+                System.out.println("Vehicle subscribed: " + link.isSubscribed());
+                return;
+            }
             WebDriverManager.chromedriver().setup();
             ChromeOptions options = new ChromeOptions();
             WebDriver driver = new ChromeDriver(options);
@@ -230,6 +241,10 @@ public class AvtonetParser {
                         String[] partsPower = power.split(" ");
                         String[] partsPrice = price.split(" ");
 
+                        if(!link.isSubscribed()){
+                            System.out.println("Vehicle subscribed: " + link.isSubscribed());
+                            return;
+                        }
                         if (link.getVehicles().stream().filter(v -> v.getUrl().equals(hrefUrl)).findFirst().orElse(null) == null) {
                             Vehicle vehicle = new Vehicle();
                             vehicle.setLink(currentLink);
@@ -260,6 +275,9 @@ public class AvtonetParser {
                             }
                             vehicle.setUrl(hrefUrl);
                             Thread.sleep(10000 + rand.nextInt(3000));
+
+
+
                             WebDriver driver2 = new ChromeDriver();
                             driver2.get(hrefUrl);
                             WebElement dateOfLastChange = driver2.findElement(By.cssSelector("div.col-12.col-lg-6.p-0.pl-1.text-center.text-lg-left"));
@@ -313,7 +331,14 @@ public class AvtonetParser {
                 Thread.sleep(20000 + rand.nextInt(3000));
             }
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            eventPublisher.publishEvent(new VehicleEvent(this, link.getUser().getChatID(),
+                    "Error updating vehicle."));
+            try {
+                new java.net.URL(link.getUrl());
+            } catch (Exception urlException) {
+                System.out.println("Deleting link.");
+                linksRepository.delete(link);
+            }
         }
 
     }

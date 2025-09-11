@@ -71,7 +71,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 newUser.setFirstName(userFromUpdate.getFirstName());
                 newUser.setLastName(userFromUpdate.getLastName());
                 newUser.setUrl(new ArrayList<>());
-                return usersRepository.save(newUser); // ✅ persist immediately
+                return usersRepository.save(newUser);
             });
 
             if (messageText.startsWith("http") && messageText.contains("Ads/results")) {
@@ -87,7 +87,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     usersRepository.save(user);
                 }
                 //parser.updateLink(link);
-                linksRepository.save(link);
+                //linksRepository.save(link);
                 sendMessage(chatId, "Subscribed to a new url");
                 System.out.println("New url added for: " + user.getFirstName());
             }
@@ -99,7 +99,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                     return newVehicle;
                 });
 
-                // ✅ Find existing link with null URL for this user, or create it
                 Link linkForVehicles = linksRepository
                         .findByUserIdAndUrlIsNull(user.getId())
                         .orElseGet(() -> {
@@ -110,15 +109,12 @@ public class TelegramBot extends TelegramLongPollingBot {
                             return linksRepository.save(l);
                         });
 
-                // Attach vehicle to link
                 vehicle.setLink(linkForVehicles);
                 vehiclesRepository.save(vehicle);
 
-                // Keep the relationship consistent
                 linkForVehicles.getVehicles().add(vehicle);
                 linksRepository.save(linkForVehicles);
 
-                // Add to user's links list if not already there
                 if (!user.getUrl().contains(linkForVehicles)) {
                     user.getUrl().add(linkForVehicles);
                     usersRepository.save(user);
@@ -128,12 +124,39 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendMessage(chatId, "Subscribed to vehicle details!");
             }
             else if (messageText.startsWith("/unsub") && messageText.contains("Ads/results")) {
-                linksRepository.setSubscribeToLink(user.getId(), messageText, false);
-                sendMessage(chatId, "Unsubscribed from details!");
+                String messageTextTrim = messageText;
+                int index = messageTextTrim.indexOf("http");
+                //indexOf lahko vrne -1
+                if (index != -1) {
+                    messageTextTrim = messageTextTrim.substring(index).trim();
+                    Link newLink = linksRepository.findLinkByUserIdAndUrl(user.getId(), messageTextTrim);
+                    if (newLink == null || !newLink.isSubscribed()) {
+                        sendMessage(chatId, "You are not subscribed to this link.");
+                    }
+                    else {
+                        linksRepository.setSubscribeToLink(user.getId(), messageTextTrim, false);
+                        sendMessage(chatId, "Unsubscribed from link!");
+                    }
+
+                }
             }
             else if (messageText.startsWith("/unsub") && messageText.contains("Ads/details")) {
-                vehiclesRepository.setSubscribeToVehicle(user.getId(), messageText, false);
-                sendMessage(chatId, "Unsubscribed from details!");
+                String messageTextTrim = messageText;
+                int index = messageTextTrim.indexOf("http");
+                //indexOf lahko vrne -1
+                if (index != -1) {
+                    messageTextTrim = messageTextTrim.substring(index).trim();
+
+                    Vehicle newVehicle = vehiclesRepository.findVehicleByUrl(messageTextTrim);
+                    if (newVehicle == null || !newVehicle.isSubscribed()) {
+                        sendMessage(chatId, "You are not subscribed to this vehicle.");
+                    }
+                    else {
+                        vehiclesRepository.setSubscribeToVehicle(user.getId(), messageTextTrim, false);
+                        sendMessage(chatId, "Unsubscribed from vehicle!");
+                    }
+
+                }
             }
              else if (messageText.startsWith("/help")) {
                 String helper = """
