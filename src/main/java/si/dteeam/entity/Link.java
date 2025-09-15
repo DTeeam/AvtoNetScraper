@@ -2,19 +2,20 @@ package si.dteeam.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Data
+@Getter
+@Setter
 public class Link {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-
 
     private LocalDateTime createdAt;
     @PrePersist
@@ -22,16 +23,15 @@ public class Link {
         this.createdAt = LocalDateTime.now();
     }
 
-
     @ManyToOne
-    @JoinColumn(name = "user_id")
-    private Users user;
+    @JoinColumn(name = "subscriber_id")
+    private Subscriber subscriber;
 
     @OneToMany(mappedBy = "link")
     private List<Vehicle> vehicles = new ArrayList<>();
 
     @Lob
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT", nullable = true)
     private String url;
 
     boolean isSubscribed;
@@ -40,12 +40,10 @@ public class Link {
     public String toString() {
         return "Link{" +
                 "id=" + id +
-                ", url='" + url + '\'' +
                 ", createdAt=" + createdAt +
-                ", vehicles=" + vehicles +
+                ", subscriber=" + subscriber +
+                ", url='" + url + '\'' +
+                ", isSubscribed=" + isSubscribed +
                 '}';
     }
-
-
-
 }

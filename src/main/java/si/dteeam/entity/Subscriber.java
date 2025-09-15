@@ -2,13 +2,17 @@ package si.dteeam.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Data
-public class Users {
+@Getter
+@Setter
+public class Subscriber {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -22,20 +26,20 @@ public class Users {
         this.createdAt = LocalDateTime.now();
     }
 
-    @OneToMany(mappedBy = "user",
+    @OneToMany(mappedBy = "subscriber",
             cascade = CascadeType.ALL,
             fetch = FetchType.LAZY)
 
-    private List<Link> url;
+    private List<Link> url = new ArrayList<>();
 
     @Override
     public String toString() {
-        return "Users{" +
-                "id=" + id +
-                ", firstName='" + firstName + '\'' +
-                ", lastName='" + lastName + '\'' +
+        return "Subscriber{" +
+                "createdAt=" + createdAt +
                 ", chatID=" + chatID +
-                ", url=" + url +
+                ", lastName='" + lastName + '\'' +
+                ", firstName='" + firstName + '\'' +
+                ", id=" + id +
                 '}';
     }
 }

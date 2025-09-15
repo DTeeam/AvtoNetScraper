@@ -8,16 +8,21 @@ import org.springframework.transaction.annotation.Transactional;
 import si.dteeam.entity.Link;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface LinksRepository  extends JpaRepository<Link, Integer> {
-    @Query("SELECT l FROM Link l WHERE l.user.chatID = :chatId")
+    @Query("SELECT l FROM Link l WHERE l.subscriber.chatID = :chatId")
     List<Link> findLinksByChatId(@Param("chatId") Long chatId);
 
-    @Query("SELECT l FROM Link l WHERE l.url = :url")
-    Link findLinksByUrl(@Param("url") String url);
+    Link findLinksById(Long id);
 
     @Modifying
-    @Query("UPDATE Link l SET l.isSubscribed = :subscribe WHERE l.user.id = :userId AND l.url = :linkUrl")
+    @Query("UPDATE Link l SET l.isSubscribed = :subscribe WHERE l.subscriber.id = :subscriberId AND l.url = :linkUrl")
     @Transactional
-    int setSubscribeToLink(Long userId, String linkUrl, boolean subscribe);
+    int setSubscribeToLink(Long subscriberId, String linkUrl, boolean subscribe);
+
+    //@Query("SELECT l FROM Link l LEFT JOIN FETCH l.vehicles WHERE l.user.id = :userId AND l.url IS NULL")
+    Optional<Link> findBySubscriberIdAndUrlIsNull(Long subscriberId);
+
+    Link findLinkBySubscriberIdAndUrl(Long subscriberId, String url);
 }
