@@ -10,9 +10,9 @@ import java.util.Optional;
 
 public interface VehiclesRepository extends JpaRepository<Vehicle, Long> {
     @Modifying
-    @Query("UPDATE Vehicle v SET v.isSubscribed = :subscribe WHERE v.link.user.id = :userId AND v.url = :vehicleUrl")
+    @Query("UPDATE Vehicle v SET v.isSubscribed = :subscribe WHERE v.link.subscriber.id = :subscriberId AND v.url = :vehicleUrl")
     @Transactional
-    int setSubscribeToVehicle(Long userId, String vehicleUrl, boolean subscribe);
+    int setSubscribeToVehicle(Long subscriberId, String vehicleUrl, boolean subscribe);
 
     @Query("SELECT v FROM Vehicle v WHERE v.url LIKE :vehicleUrl")
     Optional<Vehicle> findByUrl(String vehicleUrl);

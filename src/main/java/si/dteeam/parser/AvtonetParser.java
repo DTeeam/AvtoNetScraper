@@ -2,6 +2,7 @@ package si.dteeam.parser;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
 import jakarta.annotation.PostConstruct;
+import jakarta.persistence.EntityManager;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -30,30 +31,16 @@ import java.util.regex.Pattern;
 
 @Service
 public class AvtonetParser {
+    @Autowired
     private VehiclesRepository vehiclesRepository;
+    @Autowired
     private UsersRepository usersRepository;
+    @Autowired
     private LinksRepository linksRepository;
-    private volatile boolean stopThread = false;
-
-
     @Autowired
-    public void setVehiclesRepository(VehiclesRepository vehiclesRepository) {
-        this.vehiclesRepository = vehiclesRepository;
-    }
-
-    @Autowired
-    public void setUsersRepository(UsersRepository usersRepository) {
-        this.usersRepository = usersRepository;
-    }
-
-    @Autowired
-    public void setLinksRepository(LinksRepository linksRepository) {
-        this.linksRepository = linksRepository;
-    }
-
+    private EntityManager entityManager;
     @Autowired
     private ApplicationEventPublisher eventPublisher;
-
 
     @PostConstruct
     public void init() {
@@ -140,10 +127,11 @@ public class AvtonetParser {
             newVehicle.setId(vehicle.getId());
             newVehicle.setSubscribed(vehicle.isSubscribed());
 
+            Vehicle globalVehicle = vehiclesRepository.findById(vehicle.getId()).orElse(null);
             if (!newVehicle.equals(vehicle) && vehicle.isSubscribed()) {
                 System.out.println("newVehicle: \n" + newVehicle);
                 System.out.println("vehicle: \n" + vehicle);
-                //TODO ko dodaš drugo vozilo, obveščanje ne deluje več
+
                 if(vehicle.getTitle() != null && vehicle.getPrice() != null &&
                         vehicle.getModelYear() != null && vehicle.getPowerKW() != null && vehicle.getDateOfChange() != null){
                     StringBuilder changes = new StringBuilder();
@@ -164,7 +152,7 @@ public class AvtonetParser {
                     }
 
                     if (changes.isEmpty()) {
-                        eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
+                        eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getSubscriber().getChatID(),
                                 "An ad you are subscribed to has updated: " + title + "\n" + vehicle.getUrl(
                                 ) + "\n" + changes.toString()));
                     }
@@ -189,7 +177,7 @@ public class AvtonetParser {
             driver.quit();
             Thread.sleep(10000 + rand.nextInt(3000));
         } catch (Exception e){
-            eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getUser().getChatID(),
+            eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getSubscriber().getChatID(),
                     "Error updating vehicle."));
             try {
                 new java.net.URL(vehicle.getUrl());
@@ -202,11 +190,8 @@ public class AvtonetParser {
 
 
     public void updateLink(Link link) {
+
         try {
-            if(!link.isSubscribed()){
-                System.out.println("Vehicle subscribed: " + link.isSubscribed());
-                return;
-            }
             WebDriverManager.chromedriver().setup();
             ChromeOptions options = new ChromeOptions();
             WebDriver driver = new ChromeDriver(options);
@@ -216,8 +201,9 @@ public class AvtonetParser {
 
                 List<WebElement> posts = driver.findElements(By.className("GO-Results-Row"));
                 for (WebElement post : posts) {
-                    if (stopThread) {
-                        driver.quit();
+                    entityManager.refresh(link);
+                    if (!link.isSubscribed()) {
+                        System.out.println("Link not found or not subscribed");
                         return;
                     }
 
@@ -269,6 +255,8 @@ public class AvtonetParser {
                             System.out.println("Vehicle subscribed: " + link.isSubscribed());
                             return;
                         }
+                        System.out.println("Vehicle subscribed: " + link.isSubscribed());
+
                         if (link.getVehicles().stream().filter(v -> v.getUrl().equals(hrefUrl)).findFirst().orElse(null) == null) {
                             Vehicle vehicle = new Vehicle();
                             vehicle.setLink(currentLink);
@@ -337,7 +325,7 @@ public class AvtonetParser {
                             System.out.println(vehicle);
 
                             if(link.isSubscribed()){
-                                eventPublisher.publishEvent(new VehicleEvent(this, link.getUser().getChatID(),
+                                eventPublisher.publishEvent(new VehicleEvent(this, link.getSubscriber().getChatID(),
                                         "New ad for: " + title +  "\n" + vehicle.getUrl()
                                 ));
                             }
@@ -349,13 +337,14 @@ public class AvtonetParser {
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
+
                 }
                 driver.close();
                 driver.quit();
                 Thread.sleep(20000 + rand.nextInt(3000));
             }
         } catch (InterruptedException e) {
-            eventPublisher.publishEvent(new VehicleEvent(this, link.getUser().getChatID(),
+            eventPublisher.publishEvent(new VehicleEvent(this, link.getSubscriber().getChatID(),
                     "Error updating vehicle."));
             try {
                 new java.net.URL(link.getUrl());

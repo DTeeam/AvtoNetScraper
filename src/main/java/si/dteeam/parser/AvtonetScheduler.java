@@ -31,7 +31,7 @@ public class AvtonetScheduler {
         updateVehicles();
     }
 
-   @Transactional
+    @Transactional
     @Scheduled(cron = "0 * * * * *")
     public void updateLinks() {
         List<Link> links = linksRepository.findAll();

@@ -4,13 +4,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import si.dteeam.entity.Link;
-import si.dteeam.entity.Users;
+import si.dteeam.entity.Subscriber;
 import si.dteeam.entity.Vehicle;
 import si.dteeam.events.VehicleEvent;
 import si.dteeam.parser.AvtonetParser;
@@ -31,22 +30,12 @@ public class TelegramBot extends TelegramLongPollingBot {
     private String botToken;
 
     @Autowired
-    private AvtonetParser parser;
-
-    @Autowired
-    private UsersRepository usersRepository;
-
-
-    @Autowired
-    private VehiclesRepository vehiclesRepository;
-    @Autowired
-    private LinksRepository linksRepository;
+    private TelegramBotService telegramBotService;
 
     @EventListener
     public void handleNewVehicleEvent(VehicleEvent event) {
         sendMessage(event.getChatId(), event.getMessage());
     }
-
 
     @Override
     public String getBotUsername() {
@@ -60,105 +49,39 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
+        System.out.println("Received update: " + update.toString());
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             Long chatId = update.getMessage().getChatId();
-            org.telegram.telegrambots.meta.api.objects.User userFromUpdate = update.getMessage().getFrom();
             String responseText = "";
 
-            Users user = usersRepository.findByChatID(chatId).orElseGet(() -> {
-                Users newUser = new Users();
-                newUser.setChatID(chatId);
-                newUser.setFirstName(userFromUpdate.getFirstName());
-                newUser.setLastName(userFromUpdate.getLastName());
-                newUser.setUrl(new ArrayList<>());
-                return usersRepository.save(newUser);
-            });
+            Subscriber subscriber = telegramBotService.findOrCreateSubscriber(chatId, update.getMessage().getFrom());
 
             if (messageText.startsWith("http") && messageText.contains("Ads/results")) {
-                Link link = new Link();
-                link.setUrl(messageText);
-                link.setUser(user);
-                link.setSubscribed(true);
-
-                List<Link> linkList = user.getUrl();
-                if (!linkList.contains(link)) {
-                    linkList.add(link);
-                    user.setUrl(linkList);
-                    usersRepository.save(user);
-                }
-                //parser.updateLink(link);
-                //linksRepository.save(link);
+                telegramBotService.processResults(messageText, chatId, subscriber);
                 sendMessage(chatId, "Subscribed to a new url");
-                System.out.println("New url added for: " + user.getFirstName());
+                System.out.println("New url added for: " + subscriber.getFirstName());
             }
             else if (messageText.startsWith("http") && messageText.contains("Ads/details")) {
-                Vehicle vehicle = vehiclesRepository.findByUrl(messageText).orElseGet(() -> {
-                    Vehicle newVehicle = new Vehicle();
-                    newVehicle.setUrl(messageText);
-                    newVehicle.setSubscribed(true);
-                    return newVehicle;
-                });
-
-                Link linkForVehicles = linksRepository
-                        .findByUserIdAndUrlIsNull(user.getId())
-                        .orElseGet(() -> {
-                            Link l = new Link();
-                            l.setUser(user);
-                            l.setUrl(null);
-                            l.setSubscribed(true);
-                            return linksRepository.save(l);
-                        });
-
-                vehicle.setLink(linkForVehicles);
-                vehiclesRepository.save(vehicle);
-
-                linkForVehicles.getVehicles().add(vehicle);
-                linksRepository.save(linkForVehicles);
-
-                if (!user.getUrl().contains(linkForVehicles)) {
-                    user.getUrl().add(linkForVehicles);
-                    usersRepository.save(user);
-                }
-
-
+                telegramBotService.processDetails(messageText, chatId, subscriber);
                 sendMessage(chatId, "Subscribed to vehicle details!");
-                System.out.println("New vehicle added for: " + user.getFirstName());
+                System.out.println("New vehicle added for: " + subscriber.getFirstName());
             }
             else if (messageText.startsWith("/unsub") && messageText.contains("Ads/results")) {
-                String messageTextTrim = messageText;
-                int index = messageTextTrim.indexOf("http");
-                //indexOf lahko vrne -1
-                if (index != -1) {
-                    messageTextTrim = messageTextTrim.substring(index).trim();
-                    Link newLink = linksRepository.findLinkByUserIdAndUrl(user.getId(), messageTextTrim);
-                    if (newLink == null || !newLink.isSubscribed()) {
-                        sendMessage(chatId, "You are not subscribed to this link.");
-                    }
-                    else {
-                        linksRepository.setSubscribeToLink(user.getId(), messageTextTrim, false);
-                        sendMessage(chatId, "Unsubscribed from link!");
-                    }
-
+                if (telegramBotService.unsubResults(messageText, chatId, subscriber)) {
+                    sendMessage(chatId, "Unsubscribed from url!");
+                } else {
+                    sendMessage(chatId, "You are not subscribed to this url.");
                 }
             }
             else if (messageText.startsWith("/unsub") && messageText.contains("Ads/details")) {
-                String messageTextTrim = messageText;
-                int index = messageTextTrim.indexOf("http");
-                //indexOf lahko vrne -1
-                if (index != -1) {
-                    messageTextTrim = messageTextTrim.substring(index).trim();
-
-                    Vehicle newVehicle = vehiclesRepository.findVehicleByUrl(messageTextTrim);
-                    if (newVehicle == null || !newVehicle.isSubscribed()) {
-                        sendMessage(chatId, "You are not subscribed to this vehicle.");
-                    }
-                    else {
-                        vehiclesRepository.setSubscribeToVehicle(user.getId(), messageTextTrim, false);
-                        sendMessage(chatId, "Unsubscribed from vehicle!");
-                    }
-
+                if (telegramBotService.unsubDetails(messageText, chatId, subscriber)) {;
+                    sendMessage(chatId, "Unsubscribed from vehicle details!");
+                } else {
+                    sendMessage(chatId, "You are not subscribed to this vehicle.");
                 }
+
+
             }
              else if (messageText.startsWith("/help")) {
                 String helper = """

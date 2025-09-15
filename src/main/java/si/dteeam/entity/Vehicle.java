@@ -33,20 +33,4 @@ public class Vehicle {
     private Link link;
 
     private boolean isSubscribed;
-
-    @Override
-    public String toString() {
-        return "Vehicle{" +
-                "id=" + id +
-                //", title='" + title + '\'' +
-                ", brand='" + brand + '\'' +
-                ", model='" + model + '\'' +
-                ", price=" + price +
-                ", modelYear=" + modelYear +
-                ", mileage=" + mileage +
-                ", power=" + powerKW +
-                ", url='" + url +
-                ", dateOfChange='" + dateOfChange + '\'' +
-                '}';
-    }
 }
