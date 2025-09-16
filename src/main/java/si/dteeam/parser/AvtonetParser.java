@@ -150,8 +150,7 @@ public class AvtonetParser {
                     if (!Objects.equals(vehicle.getDateOfChange(), newVehicle.getDateOfChange())) {
                         changes.append("Date of Change: ").append(vehicle.getDateOfChange()).append(" → ").append(newVehicle.getDateOfChange()).append("\n");
                     }
-
-                    if (changes.isEmpty()) {
+                    if (!changes.isEmpty()) {
                         eventPublisher.publishEvent(new VehicleEvent(this, vehicle.getLink().getSubscriber().getChatID(),
                                 "An ad you are subscribed to has updated: " + title + "\n" + vehicle.getUrl(
                                 ) + "\n" + changes.toString()));
@@ -171,7 +170,6 @@ public class AvtonetParser {
             System.out.println("Kilometri: " + kilometers);
             System.out.println("Moč motorja: " + powerKW + " kW");
 */
-            vehicle.setDateOfChange(dateTime);
 
             System.out.println("Model year: " + vehicle.getModelYear());
             driver.quit();
@@ -201,7 +199,7 @@ public class AvtonetParser {
 
                 List<WebElement> posts = driver.findElements(By.className("GO-Results-Row"));
                 for (WebElement post : posts) {
-                    entityManager.refresh(link);
+                   // entityManager.refresh(link);
                     if (!link.isSubscribed()) {
                         System.out.println("Link not found or not subscribed");
                         return;
